@@ -162,7 +162,7 @@ class CCRSession(object):
     if self.use_redis:
       return self.rccr.info(package)['ID']
     else:
-      return info(package)['ID']
+      return infoRemote(package)['ID']
 
   def flag(self, package):
     """Flags a package out of date."""
@@ -176,10 +176,10 @@ class CCRSession(object):
   def unflag(self, package):
     """Unflags a package out of date."""
     ccrid = self.getid(package)
-    if info(package)['OutOfDate'] == "1":
+    if infoRemote(package)['OutOfDate'] == "1":
       data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_UnFlag": 1}).encode()
       self._opener.open(CCR_PKG, data)
-      if info(package)['OutOfDate'] == "1":
+      if infoRemote(package)['OutOfDate'] == "1":
         print("Could not unflag %s as out of date." % package)
 
   def voted(self, package, by='name'):
@@ -271,8 +271,7 @@ class CCRSession(object):
 
   def setcategory(self, package, category):
     """Change the category of a package in the CCR."""
-    pkginfo = info(package)
-    ccrid = pkginfo['ID']
+    ccrid = self.getid(package)
     try:
       data = parse.urlencode({"action": "do_ChangeCategory", "category_id": CATEGORY_NUMS[category]}).encode()
     except KeyError:
@@ -290,7 +289,7 @@ class RedisCCR(object):
 
   def needsUpdate(self):
     """Test whether updatePackages should be executed."""
-    return True if self.r.keys("ccr:packages:*") == [] else False
+    return True if not self.r.exists('playonlinux') else False
 
   def updatePackages(self):
     """Update the Redis Database with the newest Package information."""
@@ -310,7 +309,7 @@ class RedisCCR(object):
 
   def search(self, keyword):
     """Searches packages by title."""
-    return list(map(lambda x: x.decode(), self.r.keys('*' + keyword + '*')))
+    return list(map(self.info, list(map(lambda x: x.decode(), self.r.keys('*' + keyword + '*')))))
 
   def info(self, package):
     """Returns information about a package."""
@@ -325,10 +324,10 @@ class RedisCCR(object):
   def msearch(self, maintainer):
     """Searches for packages maintained by a certain maintainer."""
     packs = []
-    for key in r.keys("*"):
-      if r.hget(key, b'Maintainer').decode() == maintainer:
+    for key in self.r.keys("*"):
+      if self.r.hget(key, b'Maintainer').decode() == maintainer:
         packs += [key.decode()]
-    return map(self.info, packs)
+    return list(map(self.info, packs))
 
   def orphans(self):
     """Searches for orphaned packages."""
@@ -336,11 +335,15 @@ class RedisCCR(object):
 
   def geturl(self, package, by='name'):
     """Gets the url of package by name or id."""
-      if by == 'name':
-        return CCR_PKG + "?ID=" + self.info(package)['ID']
-      elif by == 'id':
-        return CCR_PKG + "?ID=" + package
+    if by == 'name':
+      return CCR_PKG + "?ID=" + self.info(package)['ID']
+    elif by == 'id':
+      return CCR_PKG + "?ID=" + package
 
 # Test
 if __name__ == "__main__":
-  printDict(info("ffpy"))
+  new = RedisCCR()
+  print("Redis:\n")
+  printDict(new.info('ffpy'))
+  print("\n---\nRemote:\n")
+  printDict(infoRemote("ffpy"))
