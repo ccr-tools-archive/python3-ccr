@@ -327,7 +327,8 @@ class RedisCCR(object):
     for key in self.r.keys("*"):
       if self.r.hget(key, b'Maintainer').decode() == maintainer:
         packs += [key.decode()]
-    return list(map(self.info, packs))
+    #return list(map(self.info, packs))
+    return packs
 
   def orphans(self):
     """Searches for orphaned packages."""
