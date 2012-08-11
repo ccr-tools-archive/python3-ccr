@@ -42,7 +42,7 @@ CATEGORY_NUMS = {
                 "utils": 18,
                 "lib32": 19,
                 }
-EXPIRE=12000
+EXPIRE=21600
 
 # Pretty Print Dictionaries
 def printDict(dict, indent=0, seperate='align', endwith='\n'):
@@ -62,26 +62,26 @@ def printDict(dict, indent=0, seperate='align', endwith='\n'):
       print('\n')
 
 # Information Classes and Functions
-def search(keyword):
+def searchRemote(keyword):
   """Searches packages by keyword."""
   return json.loads(request.urlopen(SEARCH + keyword).read().decode())['results']
 
-def info(package):
+def infoRemote(package):
   """Returns information about a package."""
   return json.loads(request.urlopen(INFO + package).read().decode())['results']
 
-def msearch(maintainer):
+def msearchRemote(maintainer):
   """Searches for packages maintained by a certain maintainer."""
   return json.loads(request.urlopen(MSEARCH + maintainer).read().decode())['results'] 
 
-def orphans():
+def orphansRemote():
   """Searches for orphaned packages."""
-  return msearch('0');
+  return msearchRemote('0');
 
-def geturl(package, by='name'):
+def geturlRemote(package, by='name'):
   """Gets the url of package by name or id."""
   if by == 'name':
-    return CCR_PKG + "?ID=" + info(package)['ID']
+    return CCR_PKG + "?ID=" + infoRemote(package)['ID']
   elif by == 'id':
     return CCR_PKG + "?ID=" + package
 
@@ -118,10 +118,15 @@ def getpkg(package, destination):
 class CCRSession(object):
   """The Class containing all the CCR actions."""
 
-  def __init__(self, username, password):
+  def __init__(self, username, password, use_redis=True):
     """Log in to the CCR and set a few variables."""
     # Allow username to be used across the class
     self.username = username
+    # Allow acess of use_redis bool over whole class
+    self.use_redis = use_redis
+    # Initialize redis
+    if use_redis:
+      self.rccr = RedisCCR()
     # Initialize cookiejar and opener
     self.cj = cookiejar.CookieJar()
     self._opener = request.build_opener(request.HTTPCookieProcessor(self.cj))
@@ -152,18 +157,25 @@ class CCRSession(object):
     """Deconstructor."""
     self.close()
 
+  def getid(self, package):
+    """Gets the ID of package."""
+    if self.use_redis:
+      return self.rccr.info(package)['ID']
+    else:
+      return info(package)['ID']
+
   def flag(self, package):
     """Flags a package out of date."""
-    ccrid = info(package)['ID']
-    if info(package)['OutOfDate'] == "0":
+    ccrid = self.getid(package)
+    if infoRemote(package)['OutOfDate'] == "0":
       data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_Flag": 1}).encode()
       self._opener.open(CCR_PKG, data)
-      if info(package)['OutOfDate'] == "0":
+      if infoRemote(package)['OutOfDate'] == "0":
         print("Could not flag %s as out of date." % package)
 
   def unflag(self, package):
     """Unflags a package out of date."""
-    ccrid = info(package)['ID']
+    ccrid = self.getid(package)
     if info(package)['OutOfDate'] == "1":
       data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_UnFlag": 1}).encode()
       self._opener.open(CCR_PKG, data)
@@ -173,7 +185,7 @@ class CCRSession(object):
   def voted(self, package, by='name'):
     """Checks to see if user has voted for a package."""
     if by == 'name':
-      ccrid = info(package)['ID']
+      ccrid = self.getid(package)
     else:
       ccrid = package
     if "class='button' name='do_UnVote'" in self._opener.open(CCR_PKG + "?ID=" + ccrid).read().decode():
@@ -183,7 +195,7 @@ class CCRSession(object):
 
   def vote(self, package):
     """Votes for a package."""
-    ccrid = info(package)['ID']
+    ccrid = self.getid(package)
     # Check if the package has been voted for, if not vote for it
     if not self.voted(ccrid, by='id'):
       data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_Vote": 1}).encode()
@@ -194,7 +206,7 @@ class CCRSession(object):
 
   def unvote(self, package):
     """Removes the user's vote for a package."""
-    ccrid = info(package)['ID']
+    ccrid = self.getid(package)
     # Check if the package has been voted for, if so remove the vote
     if self.voted(ccrid, by='id'):
       data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_UnVote": 1}).encode()
@@ -205,46 +217,50 @@ class CCRSession(object):
 
   def delete(self, package):
     """Removes a package from the CCR."""
-    ccrid = info(package)['ID']
+    ccrid = self.getid(package)
     data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_Delete": 1, "confirm_Delete": 0}).encode()
     self._opener.open(CCR_PKG, data).read()
     # Test if package still exists
-    if info(package) != 'No result found':
+    if infoRemote(package) != 'No result found':
       print("Could not delete %s." % package)
 
   def notify(self, package):
     """Set notify for package."""
-    ccrid = info(package)['ID']
+    ccrid = self.getid(package)
     data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_Notify": 1}).encode()
     if "<option value='do_UnNotify'" not in self._opener.open(CCR_PKG, data).read().decode():
       print("Could not set notify for %s." % package)
 
   def unnotify(self, package):
     """Unset notify for package."""
-    ccrid = info(package)['ID']
+    ccrid = self.getid(package)
     data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_UnNotify": 1}).encode()
     if "<option value='do_Notify'" not in self._opener.open(CCR_PKG, data).read().decode():
       print("Could not unset notify for %s." % package)
 
   def adopt(self, package):
     """Adopt a package."""
-    pkginfo = info(package)
-    ccrid = pkginfo['ID']
-    if pkginfo['Maintainer'] != '[PKGBUILD error: non-UTF8 character]':
-      print("Attempting to adopt maintained package.")
+    ccrid = self.getid(package)
     data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_Adopt": 1}).encode()
     self._opener.open(CCR_PKG, data).read()
-    pkginfo = info(package)
+    if self.use_redis:
+      self.rccr.updatePackages()
+      pkginfo = self.rccr.info(package)
+    else:
+      pkginfo = infoRemote(package)
     if pkginfo['Maintainer'] != self.username:
       print("Could not adopt %s." % package)
 
   def disown(self, package):
     """Disown a package."""
-    pkginfo = info(package)
-    ccrid = pkginfo['ID']
+    ccrid = self.getid(package)
     data = parse.urlencode({"IDs[%s]" % (ccrid): 1, "ID": ccrid, "do_Disown": 1}).encode()
     self._opener.open(CCR_PKG, data).read()
-    pkginfo = info(package)
+    if self.use_redis:
+      self.rccr.updatePackages()
+      pkginfo = self.rccr.info(package)
+    else:
+      pkginfo = infoRemote(package)
     if pkginfo['Maintainer'] == self.username:
       print("Could not disown %s." % package)
 
@@ -278,8 +294,7 @@ class RedisCCR(object):
 
   def updatePackages(self):
     """Update the Redis Database with the newest Package information."""
-    todel = self.r.keys("ccr:packages:*")
-#    todel += self.r.keys("ccr:ids:*")
+    todel = self.r.keys()
     if todel != []:
       for val in todel:
         self.r.delete(val)
@@ -288,13 +303,43 @@ class RedisCCR(object):
     for package in newdata:
       for key in package.keys():
         if key != 'Name':
-          storeHash = 'ccr:packages:' + package['Name']
+          storeHash = package['Name']
           pipe.hset(storeHash, key, package[key])
           pipe.expire(storeHash, EXPIRE)
-#      storeHash = 'ccr:ids:' + package['ID']
-#      pipe.set(storeHash, package['Name'])
-#      pipe.expire(storeHash, EXPIRE)
     pipe.execute()
+
+  def search(self, keyword):
+    """Searches packages by title."""
+    return list(map(lambda x: x.decode(), self.r.keys('*' + keyword + '*')))
+
+  def info(self, package):
+    """Returns information about a package."""
+    cdic = self.r.hgetall(package)
+    # Decode
+    for key in cdic.keys():
+      cdic[key] = cdic[key].decode()
+      cdic[key.decode()] = cdic.pop(key)
+    # Return decoded dictionary
+    return cdic
+
+  def msearch(self, maintainer):
+    """Searches for packages maintained by a certain maintainer."""
+    packs = []
+    for key in r.keys("*"):
+      if r.hget(key, b'Maintainer').decode() == maintainer:
+        packs += [key.decode()]
+    return map(self.info, packs)
+
+  def orphans(self):
+    """Searches for orphaned packages."""
+    return self.msearch('None')
+
+  def geturl(self, package, by='name'):
+    """Gets the url of package by name or id."""
+      if by == 'name':
+        return CCR_PKG + "?ID=" + self.info(package)['ID']
+      elif by == 'id':
+        return CCR_PKG + "?ID=" + package
 
 # Test
 if __name__ == "__main__":
