@@ -2,6 +2,7 @@
 
 # Imports
 import json # For information functions
+import redis
 from urllib import request, parse, error # For contacting the CCR
 from sys import exit as exitcode # For exiting
 from http import cookiejar # For __init__ in CCRSession
@@ -41,6 +42,7 @@ CATEGORY_NUMS = {
                 "utils": 18,
                 "lib32": 19,
                 }
+EXPIRE=12000
 
 # Pretty Print Dictionaries
 def printDict(dict, indent=0, seperate='align', endwith='\n'):
@@ -264,6 +266,35 @@ class CCRSession(object):
     checkstr = "selected='selected'>" + category + "</option>"
     if checkstr not in response:
       print("Something seems to have gone wrong when changing the category.")
+
+# Redis DB Stuff
+class RedisCCR(object):
+  def __init__(self):
+    self.r = redis.StrictRedis(db=3)
+
+  def needsUpdate(self):
+    """Test whether updatePackages should be executed."""
+    return True if self.r.keys("ccr:packages:*") == [] else False
+
+  def updatePackages(self):
+    """Update the Redis Database with the newest Package information."""
+    todel = self.r.keys("ccr:packages:*")
+#    todel += self.r.keys("ccr:ids:*")
+    if todel != []:
+      for val in todel:
+        self.r.delete(val)
+    pipe = self.r.pipeline()
+    newdata = getlatest(getlatest(1)[0]['ID'])
+    for package in newdata:
+      for key in package.keys():
+        if key != 'Name':
+          storeHash = 'ccr:packages:' + package['Name']
+          pipe.hset(storeHash, key, package[key])
+          pipe.expire(storeHash, EXPIRE)
+#      storeHash = 'ccr:ids:' + package['ID']
+#      pipe.set(storeHash, package['Name'])
+#      pipe.expire(storeHash, EXPIRE)
+    pipe.execute()
 
 # Test
 if __name__ == "__main__":
