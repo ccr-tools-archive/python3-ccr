@@ -310,7 +310,7 @@ class RedisCCR(object):
 
   def search(self, keyword):
     """Searches packages by title."""
-    return list(map(self.info, list(map(lambda x: x.decode(), self.r.keys('*' + keyword + '*')))))
+    return [x.decode() for x in self.r.keys('*' + keyword + '*')]
 
   def info(self, package):
     """Returns information about a package."""
