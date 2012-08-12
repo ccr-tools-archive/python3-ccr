@@ -324,7 +324,7 @@ class RedisCCR(object):
 
   def msearch(self, maintainer):
     """Searches for packages maintained by a certain maintainer."""
-    return self.r.hget('Maintainers', 'stephenmac7').decode().split(' ')
+    return self.r.hget('Maintainers', maintainer).decode().split(' ')
 
   def orphans(self):
     """Searches for orphaned packages."""
