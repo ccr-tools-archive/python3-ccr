@@ -342,7 +342,7 @@ class RedisCCR(object):
     if self.r.exists('Maintainers'):
       self.r.delete('Maintainers')
     maintainers = {}
-    for package in list(map(lambda x: x.decode(), self.r.keys())):
+    for package in (x.decode() for x in self.r.keys()):
       maintainer = self.info(package)['Maintainer']
       if maintainer in maintainers:
         maintainers[maintainer] += [package]
