@@ -2,7 +2,6 @@
 
 # Imports
 import json # For information functions
-import redis # For contacting redis db
 from urllib import request, parse, error # For contacting the CCR
 from http import cookiejar # For login to the CCR
 
@@ -71,7 +70,7 @@ def infoRemote(package):
 
 def msearchRemote(maintainer):
   """Searches for packages maintained by a certain maintainer."""
-  return json.loads(request.urlopen(MSEARCH + maintainer).read().decode())['results'] 
+  return json.loads(request.urlopen(MSEARCH + maintainer).read().decode())['results']
 
 def orphansRemote():
   """Searches for orphaned packages."""
@@ -125,6 +124,7 @@ class CCRSession(object):
     self.use_redis = use_redis
     # Initialize redis
     if use_redis:
+      import redis # For contacting redis db
       self.rccr = RedisCCR()
     # Initialize cookiejar and opener
     self.cj = cookiejar.CookieJar()
@@ -284,6 +284,7 @@ class CCRSession(object):
 # Redis DB Stuff
 class RedisCCR(object):
   def __init__(self):
+    import redis # import redis if not already imported
     self.r = redis.StrictRedis(db=3)
 
   def needsUpdate(self):
