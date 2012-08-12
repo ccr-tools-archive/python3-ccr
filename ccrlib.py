@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # CCR Library for Python 3
 
 # Imports
@@ -47,7 +48,7 @@ def printDict(dict, indent=0, seperate='align', endwith='\n'):
   """Prints a dictionary in a readable way."""
   if seperate != 'align':
     for key in dict.keys():
-      print("%s%s:%s%s" % ((" " * indent),key, seperate, dict[key]), end=endwith)
+      print("{}{}:{}{}".format(" " * indent,key, seperate, dict[key]), end=endwith)
     if '\n' not in endwith:
       print('\n')
   else:
@@ -153,7 +154,6 @@ class CCRSession(object):
     self._opener.close()
 
   def __exit__(self, type, value, traceback):
-    """Deconstructor."""
     self.close()
 
   def getid(self, package):
@@ -323,11 +323,8 @@ class RedisCCR(object):
 
   def msearch(self, maintainer):
     """Searches for packages maintained by a certain maintainer."""
-    packs = []
-    for key in self.r.keys("*"):
-      if self.r.hget(key, b'Maintainer').decode() == maintainer:
-        packs += [key.decode()]
-    #return list(map(self.info, packs))
+    packs = [key.decode() for key in self.r.keys("*") if  self.r.hget(key,
+        b'Maintainer').decode() == maintainer]
     return packs
 
   def orphans(self):
