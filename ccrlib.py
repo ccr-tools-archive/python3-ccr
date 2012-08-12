@@ -306,6 +306,7 @@ class RedisCCR(object):
           pipe.hset(storeHash, key, package[key])
           pipe.expire(storeHash, EXPIRE)
     pipe.execute()
+    self.hash_maintainers()
 
   def search(self, keyword):
     """Searches packages by title."""
@@ -323,9 +324,7 @@ class RedisCCR(object):
 
   def msearch(self, maintainer):
     """Searches for packages maintained by a certain maintainer."""
-    packs = [key.decode() for key in self.r.keys("*") if  self.r.hget(key,
-        b'Maintainer').decode() == maintainer]
-    return packs
+    return self.r.hget('Maintainers', 'stephenmac7').decode().split(' ')
 
   def orphans(self):
     """Searches for orphaned packages."""
@@ -337,6 +336,23 @@ class RedisCCR(object):
       return CCR_PKG + "?ID=" + self.info(package)['ID']
     elif by == 'id':
       return CCR_PKG + "?ID=" + package
+
+  def hash_maintainers(self):
+    """Creates a redis hash with maintainer information."""
+    if self.r.exists('Maintainers'):
+      self.r.delete('Maintainers')
+    maintainers = {}
+    for package in list(map(lambda x: x.decode(), self.r.keys())):
+      maintainer = self.info(package)['Maintainer']
+      if maintainer in maintainers:
+        maintainers[maintainer] += [package]
+      else:
+        maintainers[maintainer] = [package]
+    pipe = self.r.pipeline()
+    for m in maintainers:
+      pipe.hset('Maintainers', m, " ".join(maintainers[m]))
+    pipe.expire('Maintainers', EXPIRE)
+    pipe.execute()
 
 # Test
 if __name__ == "__main__":
