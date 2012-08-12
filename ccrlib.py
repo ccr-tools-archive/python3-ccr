@@ -2,10 +2,9 @@
 
 # Imports
 import json # For information functions
-import redis
+import redis # For contacting redis db
 from urllib import request, parse, error # For contacting the CCR
-from sys import exit as exitcode # For exiting
-from http import cookiejar # For __init__ in CCRSession
+from http import cookiejar # For login to the CCR
 
 ## Not in use
 #import re # For submit in CCRSession
