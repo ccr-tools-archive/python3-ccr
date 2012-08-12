@@ -42,3 +42,9 @@ To begin using it create a new instance: `session = CCRSession('username', 'pass
 The current actions are: `flag`, `unflag`, `vote`, `unvote`, `notify`, `unnotify`, `delete`, `adopt`, `disown`, and `setcategory`.
 
 The current information functions are: `getid` and `voted`
+
+## TODO
+* Make a Redis search function which searches descriptions and does not take much more time than the original search function
+* Lower the execute time for msearch
+* Make update faster
+
