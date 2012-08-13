@@ -1,6 +1,8 @@
 # python3-ccr
 
-CCR Library for Python 3
+python3-ccr is the CCR Library for Python 3.
+
+Note: If you delvelop with python3-ccr expect changes of function names until version 0.3
 
 ## Usage
 When using this library you must first decide whether you will use Redis or not. It will be imported no matter what but you can choose to use or not use it.
