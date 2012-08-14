@@ -109,9 +109,10 @@ def getonlinepkgbuildurl(package):
   """Gets the url of the PKGBUILD viewer online."""
   return CCR_BASE + "pkgbuild_view.php?p=" + package
 
-def getpkg(package, destination):
+def getpkg(package, destFolder='.'):
   """Downloads the source package."""
-  request.urlretrieve(getpkgurl(package), destination)
+  dest = destFolder + '/' + package + '.tar.gz'
+  request.urlretrieve(getpkgurl(package), dest)
 
 # CCR Actions- Things done logged in!
 class CCRSession(object):
