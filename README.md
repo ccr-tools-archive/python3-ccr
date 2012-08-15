@@ -47,6 +47,8 @@ The current information functions are: `getid` and `voted`
 
 ## TODO
 * Make a Redis search function which searches descriptions and does not take much more time than the original search function
-* Lower the execute time for msearch
 * Make update faster
+
+### Recently Done
+* Lower the execute time for msearch
 
