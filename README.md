@@ -23,7 +23,7 @@ CCR URL: `redis_ccr.geturl('package')`
 
 Orphan List: `redis_ccr.orphans()`
 
-Get Latest Packages: `getlatest(num=20)`
+Get Latest Packages: `get_latest(num=20)`
 
 Download Package: `getpkg('package', 'destinationfile')`
 

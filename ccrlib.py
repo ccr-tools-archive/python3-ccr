@@ -44,7 +44,7 @@ CATEGORY_NUMS = {
 EXPIRE=21600
 
 # Pretty Print Dictionaries
-def printDict(dict, indent=0, seperate='align', endwith='\n'):
+def print_dict(dict, indent=0, seperate='align', endwith='\n'):
   """Prints a dictionary in a readable way."""
   if seperate != 'align':
     for key in dict.keys():
@@ -77,14 +77,14 @@ def orphansRemote():
   """Searches for orphaned packages."""
   return msearchRemote('0');
 
-def geturlRemote(package, by='name'):
+def get_urlRemote(package, by='name'):
   """Gets the url of package by name or id."""
   if by == 'name':
     return CCR_PKG + "?ID=" + infoRemote(package)['ID']
   elif by == 'id':
     return CCR_PKG + "?ID=" + package
 
-def getlatest(num=10):
+def get_latest(num=10):
   """Gets the info for the latest `num` CCR packages then returns as a list."""
   return json.loads(request.urlopen(LATEST + str(num)).read().decode())['results']
 
@@ -292,14 +292,14 @@ class RedisCCR(object):
     """Test whether updatePackages should be executed."""
     return True if not self.r.exists('playonlinux') else False
 
-  def updatePackages(self):
+  def updatePackages(self, hm=True):
     """Update the Redis Database with the newest Package information."""
     todel = self.r.keys()
     if todel != []:
       for val in todel:
         self.r.delete(val)
     pipe = self.r.pipeline()
-    newdata = getlatest(getlatest(1)[0]['ID'])
+    newdata = get_latest(get_latest(1)[0]['ID'])
     for package in newdata:
       for key in package.keys():
         if key != 'Name':
@@ -307,7 +307,8 @@ class RedisCCR(object):
           pipe.hset(storeHash, key, package[key])
           pipe.expire(storeHash, EXPIRE)
     pipe.execute()
-    self.hash_maintainers()
+    if hm:
+      self.hash_maintainers()
 
   def search(self, keyword):
     """Searches packages by title."""
@@ -325,7 +326,10 @@ class RedisCCR(object):
 
   def msearch(self, maintainer):
     """Searches for packages maintained by a certain maintainer."""
-    return self.r.hget('Maintainers', maintainer).decode().split(' ')
+    try:
+      return self.r.hget('Maintainers', maintainer).decode().split(' ')
+    except AttributeError:
+      return "No information in the database."
 
   def orphans(self):
     """Searches for orphaned packages."""
@@ -333,10 +337,13 @@ class RedisCCR(object):
 
   def geturl(self, package, by='name'):
     """Gets the url of package by name or id."""
-    if by == 'name':
-      return CCR_PKG + "?ID=" + self.info(package)['ID']
-    elif by == 'id':
-      return CCR_PKG + "?ID=" + package
+    try:
+      if by == 'name':
+        return CCR_PKG + "?ID=" + self.info(package)['ID']
+      elif by == 'id':
+        return CCR_PKG + "?ID=" + package
+    except KeyError:
+      return "No information in the database."
 
   def hash_maintainers(self):
     """Creates a redis hash with maintainer information."""
@@ -358,7 +365,9 @@ class RedisCCR(object):
 # Test
 if __name__ == "__main__":
   new = RedisCCR()
+  if new.needsUpdate():
+    new.updatePackages()
   print("Redis:\n")
-  printDict(new.info('ffpy'))
+  print_dict(new.info('ffpy'))
   print("\n---\nRemote:\n")
-  printDict(infoRemote("ffpy"))
+  print_dict(infoRemote("ffpy"))
