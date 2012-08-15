@@ -329,7 +329,7 @@ class RedisCCR(object):
     try:
       return self.r.hget('Maintainers', maintainer).decode().split(' ')
     except AttributeError:
-      return "No information in the database."
+      return "No information in the database for this user."
 
   def orphans(self):
     """Searches for orphaned packages."""
@@ -343,7 +343,7 @@ class RedisCCR(object):
       elif by == 'id':
         return CCR_PKG + "?ID=" + package
     except KeyError:
-      return "No information in the database."
+      return "No information in the database on this package."
 
   def hash_maintainers(self):
     """Creates a redis hash with maintainer information."""
