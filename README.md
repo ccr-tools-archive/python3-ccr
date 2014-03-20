@@ -1,6 +1,6 @@
 # python3-ccr
 
-python3-ccr is the CCR Library for Python 3.
+python3-ccr is the DEPRECATED CCR Library for Python 3.
 
 Note: If you delvelop with python3-ccr expect changes of function names until version 0.3
 
